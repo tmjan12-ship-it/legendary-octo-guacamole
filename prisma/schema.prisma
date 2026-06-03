@@ -1,0 +1,136 @@
+// personal-bookkeeping schema
+// See DESIGN.md for full data model rationale
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["driverAdapters"]
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// 勘定科目マスタ
+model Account {
+  code      String        @id
+  name      String
+  type      String // asset / liability / equity / revenue / expense
+  category  String // 決算書区分
+  isActive  Boolean       @default(true)
+  sortOrder Int           @default(0)
+  lines     JournalLine[]
+}
+
+// 仕訳ヘッダ
+model JournalEntry {
+  id          String        @id @default(cuid())
+  entryDate   DateTime
+  description String
+  voucherNo   Int           @unique
+  templateKey String?
+  status      String        @default("active") // active / void
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  lines       JournalLine[]
+  attachments Attachment[]
+  audits      AuditLog[]
+
+  @@index([entryDate])
+  @@index([status])
+}
+
+// 仕訳明細（複式簿記）
+model JournalLine {
+  id           String       @id @default(cuid())
+  journal      JournalEntry @relation(fields: [journalId], references: [id], onDelete: Cascade)
+  journalId    String
+  accountCode  String
+  account      Account      @relation(fields: [accountCode], references: [code])
+  debitAmount  Int          @default(0)
+  creditAmount Int          @default(0)
+  counterparty String?
+  memo         String?
+  lineOrder    Int
+  taxCategory  String? // standard_10 / reduced_8 / non_taxable / untaxed / exempt
+
+  @@index([journalId])
+  @@index([accountCode])
+  @@index([counterparty])
+}
+
+// 訂正履歴（電子帳簿保存法対応）
+model AuditLog {
+  id         String       @id @default(cuid())
+  journal    JournalEntry @relation(fields: [journalId], references: [id], onDelete: Cascade)
+  journalId  String
+  action     String // create / update / delete / void
+  beforeJson String?
+  afterJson  String?
+  changedAt  DateTime     @default(now())
+
+  @@index([journalId])
+  @@index([changedAt])
+}
+
+// 領収書添付
+model Attachment {
+  id          String       @id @default(cuid())
+  journal     JournalEntry @relation(fields: [journalId], references: [id], onDelete: Cascade)
+  journalId   String
+  filename    String
+  storagePath String
+  fileHash    String
+  uploadedAt  DateTime     @default(now())
+
+  @@index([journalId])
+}
+
+// 仕訳テンプレート（複式簿記の負担軽減）
+model JournalTemplate {
+  key       String  @id
+  label     String
+  pattern   String // JSON: 借方/貸方の科目とフィールド
+  sortOrder Int     @default(0)
+  isActive  Boolean @default(true)
+}
+
+// 設定（事業主情報・按分率・口座など）
+model Setting {
+  key   String @id
+  value String
+}
+
+// 固定資産マスタ（減価償却対象）
+model FixedAsset {
+  id                 String               @id @default(cuid())
+  name               String
+  accountCode        String               @default("160") // 工具器具備品
+  acquisitionDate    DateTime
+  acquisitionCost    Int
+  usefulLifeYears    Int
+  depreciationMethod String               @default("straight_line") // 定額法のみサポート
+  businessUseRatio   Float                @default(1.0) // 事業按分率（0..1）
+  isDisposed         Boolean              @default(false)
+  disposalDate       DateTime?
+  notes              String?
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+  depreciations      DepreciationRecord[]
+
+  @@index([isDisposed])
+}
+
+// 年度ごとの減価償却記録（重複計上防止用）
+model DepreciationRecord {
+  id         String     @id @default(cuid())
+  asset      FixedAsset @relation(fields: [assetId], references: [id], onDelete: Restrict)
+  assetId    String
+  fiscalYear Int
+  amount     Int
+  journalId  String // 自動生成された仕訳のID
+  createdAt  DateTime   @default(now())
+
+  @@unique([assetId, fiscalYear])
+  @@index([fiscalYear])
+}

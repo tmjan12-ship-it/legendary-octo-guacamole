@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Mac の LaunchAgent で personal-bookkeeping を自動起動する設定。
+
+  使い方:
+    1) このファイルを ~/Library/LaunchAgents/ にコピー
+    2) <string>PROJECT_PATH</string> の部分を自身のパス（personal-bookkeeping ディレクトリ）に書き換え
+    3) launchctl load ~/Library/LaunchAgents/com.matsutaku.personal-bookkeeping.plist
+    4) launchctl start com.matsutaku.personal-bookkeeping
+    5) 起動時に自動起動 (RunAtLoad=true)
+
+  停止 / アンロード:
+    launchctl unload ~/Library/LaunchAgents/com.matsutaku.personal-bookkeeping.plist
+-->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.matsutaku.personal-bookkeeping</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>PROJECT_PATH/scripts/start-server.command</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>PROJECT_PATH</string>
+
+    <key>RunAtLoad</key>
+    <true/>
+
+    <key>KeepAlive</key>
+    <false/>
+
+    <key>StandardOutPath</key>
+    <string>PROJECT_PATH/data/launchd.out.log</string>
+
+    <key>StandardErrorPath</key>
+    <string>PROJECT_PATH/data/launchd.err.log</string>
+</dict>
+</plist>
