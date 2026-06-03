@@ -87,7 +87,7 @@ export default async function JournalDetailPage({
           <tbody>
             {entry.lines.map((l) => {
               const amount = l.debitAmount > 0 ? l.debitAmount : l.creditAmount;
-              const tax = innerTax(amount, l.taxCategory as TaxCategory | null);
+              const tax = innerTax(amount, (l.taxCategory ?? undefined) as TaxCategory | undefined);
               return (
                 <tr key={l.id} className="border-t border-slate-200">
                   <td className="py-1">
